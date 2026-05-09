@@ -2,6 +2,7 @@
 """ Profiles file for all the Profiles classes in Deequ"""
 import json
 from collections import namedtuple
+from typing import Optional
 
 from pyspark.sql import DataFrame, SparkSession
 from pydeequ.analyzers import KLLParameters
@@ -241,9 +242,8 @@ class ColumnProfilesBuilder:
         self._numRecords = 0
         self.columnProfileClasses = {
             "StandardColumnProfile": StandardColumnProfile,
-            "StringColumnProfile": StandardColumnProfile,
+            "StringColumnProfile": StringColumnProfile,
             "NumericColumnProfile": NumericColumnProfile,
-
         }
 
     def _columnProfilesFromColumnRunBuilderRun(self, run):
@@ -528,3 +528,40 @@ class NumericColumnProfile(ColumnProfile):
         """
         return self._approxPercentiles
 
+
+class StringColumnProfile(ColumnProfile):
+    """
+    String Column Profile class
+
+    :param SparkSession spark_session: sparkSession
+    :param str column: the designated column of which the profile is run on
+    :param JavaObject java_column_profile: The profile mapped as a Java map
+    """
+
+    def __init__(
+        self, spark_session: SparkSession, column: str, java_column_profile
+    ) -> None:
+        super().__init__(spark_session, column, java_column_profile)
+        self._minLength = get_or_else_none(java_column_profile.minLength())
+        self._maxLength = get_or_else_none(java_column_profile.maxLength())
+        self.all = {
+            "completeness": self.completeness,
+            "approximateNumDistinctValues": self.approximateNumDistinctValues,
+            "dataType": self.dataType,
+            "isDataTypeInferred": self.isDataTypeInferred,
+            "typeCounts": self.typeCounts,
+            "histogram": self.histogram,
+            "minLength": self._minLength,
+            "maxLength": self._maxLength,
+        }
+
+    @property
+    def minLength(self) -> Optional[int]:
+        return self._minLength
+
+    @property
+    def maxLength(self) -> Optional[int]:
+        return self._maxLength
+
+    def __str__(self) -> str:
+        return f"StringProfiles for column: {self.column}: {json.dumps(self.all, indent=4)}"
